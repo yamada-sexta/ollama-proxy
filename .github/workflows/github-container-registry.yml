@@ -14,7 +14,7 @@ jobs:
       packages: write
     steps:
       - name: 'Checkout GitHub Action'
-        uses: actions/checkout@main
+        uses: actions/checkout@v6
 
       - name: 'Set Timestamp'
         id: vars
@@ -29,14 +29,11 @@ jobs:
 
       - name: 'Build and Push Inventory Image'
         run: |
-          # Define the base image name
           IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/ollama-proxy
           
-          # Build with both tags
           docker build . \
             --tag ${IMAGE_NAME}:latest \
             --tag ${IMAGE_NAME}:${{ env.TIMESTAMP }}
           
-          # Push both tags
           docker push ${IMAGE_NAME}:latest
           docker push ${IMAGE_NAME}:${{ env.TIMESTAMP }}
