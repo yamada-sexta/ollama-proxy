@@ -300,32 +300,29 @@ func main() {
 			// Extract the content and tool calls from the response
 			content, thinking, parsedToolCalls := parseChoices(response.Choices)
 
-			// Get finish reason, default to "stop" if not provided
-			finishReason := "stop"
-			if response.Choices[0].FinishReason != "" {
-				finishReason = string(response.Choices[0].FinishReason)
+			// IMPORTANT: Ensure this is an empty slice, not nil, to avoid "null" in JSON
+			if parsedToolCalls == nil {
+				parsedToolCalls = make([]map[string]interface{}, 0)
 			}
 
-			// Create Ollama-compatible response
 			ollamaResponse := map[string]interface{}{
 				"model":      fullModelName,
 				"created_at": time.Now().Format(time.RFC3339),
 				"message": map[string]interface{}{
 					"role":       "assistant",
 					"content":    content,
-					"thinking":   thinking, // Optional: some parsers might not expect this in 'message'
-					"tool_calls": parsedToolCalls,
+					"thinking":   thinking,
+					"tool_calls": parsedToolCalls, // Serializes to [] instead of null
 				},
-				"done":                 true,
-				"finish_reason":        finishReason,
+				"done": true,
+				// Flattened fields required by ChatMessageFinalResponseData
 				"total_duration":       int64(1000000),
 				"load_duration":        int64(1000000),
-				"prompt_eval_count":    1,
+				"prompt_eval_count":    int64(1),
 				"prompt_eval_duration": int64(1000000),
-				"eval_count":           1,
+				"eval_count":           int64(1),
 				"eval_duration":        int64(1000000),
 			}
-			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusOK, ollamaResponse)
 		} else {
 			req := openai.ChatCompletionRequest{
@@ -370,7 +367,7 @@ func main() {
 					return
 				}
 
-				var parsedToolCalls []map[string]interface{}
+				parsedToolCalls := make([]map[string]interface{}, 0)
 
 				// Parse arguments using YAML to be more foregiving with improper JSON
 				var argsMap map[string]interface{}
