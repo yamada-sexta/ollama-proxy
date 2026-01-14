@@ -445,7 +445,7 @@ func main() {
 					delta := response.Choices[0].Delta
 
 					toolCalls := delta.ToolCalls
-					if toolCalls != nil && len(toolCalls) > 0 {
+					if len(toolCalls) > 0 {
 						for _, tc := range toolCalls {
 							//slog.Info("Tool Call", "Name", tc.Function.Name, "Arguments", tc.Function.Arguments)
 
