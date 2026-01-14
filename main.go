@@ -313,16 +313,17 @@ func main() {
 				"message": map[string]interface{}{
 					"role":       "assistant",
 					"content":    content,
-					"thinking":   thinking,
+					"thinking":   thinking, // Optional: some parsers might not expect this in 'message'
 					"tool_calls": parsedToolCalls,
 				},
-				"done":              true,
-				"finish_reason":     finishReason,
-				"total_duration":    int64(1000000), // 1ms in nanoseconds
-				"load_duration":     int64(1000000),
-				"prompt_eval_count": 1,
-				"eval_count":        1,
-				"eval_duration":     int64(1000000),
+				"done":                 true,
+				"finish_reason":        finishReason,
+				"total_duration":       int64(1000000),
+				"load_duration":        int64(1000000),
+				"prompt_eval_count":    1,
+				"prompt_eval_duration": int64(1000000),
+				"eval_count":           1,
+				"eval_duration":        int64(1000000),
 			}
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusOK, ollamaResponse)
