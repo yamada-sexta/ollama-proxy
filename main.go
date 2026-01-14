@@ -224,6 +224,69 @@ func main() {
 		c.JSON(http.StatusOK, details)
 	})
 
+	r.POST("/api/pull", func(c *gin.Context) {
+		var request struct {
+			Model  string `json:"model"`
+			Stream *bool  `json:"stream"`
+		}
+
+		if err := c.BindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON payload"})
+			return
+		}
+
+		// Verify the model exists via your provider/filter before "pulling"
+		_, err := provider.GetFullModelName(c, request.Model)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", request.Model)})
+			return
+		}
+
+		streamRequested := true
+		if request.Stream != nil {
+			streamRequested = *request.Stream
+		}
+
+		if !streamRequested {
+			c.JSON(http.StatusOK, gin.H{"status": "success"})
+			return
+		}
+
+		// Set headers for NDJSON streaming
+		c.Writer.Header().Set("Content-Type", "application/x-ndjson")
+		c.Writer.Header().Set("Cache-Control", "no-cache")
+		c.Writer.Header().Set("Connection", "keep-alive")
+
+		w := c.Writer
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			slog.Error("ResponseWriter is not a flusher")
+			return
+		}
+
+		// Simulation of Ollama's pull sequence
+		digest := "sha256:9077fe9d2ae1a4a41a868836b56b8163731a8fe16621397028c2c76f838c6907"
+		steps := []map[string]interface{}{
+			{"status": "pulling manifest", "digest": digest},
+			{"status": "verifying sha256 digest", "digest": digest},
+			{"status": "writing manifest", "digest": digest},
+			{"status": "removing any unused layers"},
+			{"status": "success"},
+		}
+
+		for _, step := range steps {
+			jsonData, err := json.Marshal(step)
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(w, "%s\n", string(jsonData))
+			flusher.Flush()
+
+			// Tiny delay to make the UI progress feel natural
+			time.Sleep(100 * time.Millisecond)
+		}
+	})
+
 	r.POST("/api/chat", func(c *gin.Context) {
 		var request struct {
 			Model     string                 `json:"model"`
