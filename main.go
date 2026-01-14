@@ -98,7 +98,7 @@ func parseChoices(choices []openai.ChatCompletionChoice) (string, string, []map[
 		msg := choices[0].Message
 
 		toolCalls := msg.ToolCalls
-		if toolCalls != nil && len(toolCalls) > 0 {
+		if len(toolCalls) > 0 {
 			for _, tc := range toolCalls {
 				// Parse arguments using YAML to be more foregiving with improper JSON
 				var argsMap map[string]interface{}
