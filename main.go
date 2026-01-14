@@ -13,15 +13,15 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
 	"github.com/gin-gonic/gin"
 	openai "github.com/sashabaranov/go-openai"
+	"gopkg.in/yaml.v3"
 )
 
 type OllamaMessage struct {
-	Role string `json:"role"`
-	Content string `json:"content"`
-	Thinking string `json:"thinking,omitempty"`
+	Role      string           `json:"role"`
+	Content   string           `json:"content"`
+	Thinking  string           `json:"thinking,omitempty"`
 	ToolCalls []OllamaToolCall `json:"tool_calls,omitempty"`
 }
 
@@ -32,10 +32,10 @@ func (c *OllamaMessage) ToOpenAi() openai.ChatCompletionMessage {
 	}
 
 	return openai.ChatCompletionMessage{
-		Role: c.Role,
-		Content: c.Content,
-		ToolCalls: toolCalls,
-		ToolCallID: "", // TODO: should be set when role=tool, must match the "id" returned as part of a Tool Call from the LLM
+		Role:             c.Role,
+		Content:          c.Content,
+		ToolCalls:        toolCalls,
+		ToolCallID:       "", // TODO: should be set when role=tool, must match the "id" returned as part of a Tool Call from the LLM
 		ReasoningContent: c.Thinking,
 	}
 }
@@ -46,19 +46,19 @@ type OllamaToolCall struct {
 
 func (c *OllamaToolCall) ToOpenAi() openai.ToolCall {
 	return openai.ToolCall{
-		Type: "function",
+		Type:     "function",
 		Function: c.Function.ToOpenAi(),
 	}
 }
 
 type OllamaFunctionCall struct {
-	Name string `json:"name"`
+	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments"`
 }
 
 func (c *OllamaFunctionCall) ToOpenAi() openai.FunctionCall {
 	return openai.FunctionCall{
-		Name: c.Name,
+		Name:      c.Name,
 		Arguments: string(c.Arguments),
 	}
 }
@@ -105,12 +105,12 @@ func parseChoices(choices []openai.ChatCompletionChoice) (string, string, []map[
 				if err := yaml.Unmarshal([]byte(tc.Function.Arguments), &argsMap); err == nil {
 					parsedToolCall := map[string]interface{}{
 						"function": map[string]interface{}{
-							"name": tc.Function.Name,
+							"name":      tc.Function.Name,
 							"arguments": argsMap,
 						},
 					}
 					parsedToolCalls = append(parsedToolCalls, parsedToolCall)
-					} else {
+				} else {
 					slog.Error("Failed to parse arguments for tool call", "Error", err)
 				}
 			}
@@ -193,9 +193,9 @@ func main() {
 				"name":        m.Name,
 				"model":       m.Model,
 				"modified_at": m.ModifiedAt,
-				"size":        270898672,
+				"size":        int64(270898672), // Ensure this is explicitly cast to int64
 				"digest":      "9077fe9d2ae1a4a41a868836b56b8163731a8fe16621397028c2c76f838c6907",
-				"details":     m.Details,
+				"details":     m.Details, // If m.Details is nil, initialize it as an empty map
 			})
 		}
 
@@ -226,13 +226,13 @@ func main() {
 
 	r.POST("/api/chat", func(c *gin.Context) {
 		var request struct {
-			Model     string          `json:"model"`
-			Messages  []OllamaMessage `json:"messages"`
-			Tools     []openai.Tool   `json:"tools"`
-			Stream    *bool           `json:"stream"`
-			Think     *bool           `json:"think"`
-			KeepAlive string          `json:"keep_alive"` // ex: 30.0s
-			Options   map[string]interface{} `json:"options"` // ex: {"num_ctx": 4096.0}
+			Model     string                 `json:"model"`
+			Messages  []OllamaMessage        `json:"messages"`
+			Tools     []openai.Tool          `json:"tools"`
+			Stream    *bool                  `json:"stream"`
+			Think     *bool                  `json:"think"`
+			KeepAlive string                 `json:"keep_alive"` // ex: 30.0s
+			Options   map[string]interface{} `json:"options"`    // ex: {"num_ctx": 4096.0}
 		}
 
 		// Parse the JSON request
@@ -241,7 +241,7 @@ func main() {
 		//slog.Info("Request", "Request", string(bodyBytes))
 
 		if err := json.Unmarshal(bodyBytes, &request); err != nil {
-		//if err := c.ShouldBindJSON(&request); err != nil {
+			//if err := c.ShouldBindJSON(&request); err != nil {
 			// Read the raw request body as a string for logging
 			slog.Error("Invalid JSON payload", "Error", err, "RequestBody", string(bodyBytes))
 
@@ -310,7 +310,7 @@ func main() {
 			ollamaResponse := map[string]interface{}{
 				"model":      fullModelName,
 				"created_at": time.Now().Format(time.RFC3339),
-				"message":    map[string]interface{}{
+				"message": map[string]interface{}{
 					"role":       "assistant",
 					"content":    content,
 					"thinking":   thinking,
@@ -318,13 +318,13 @@ func main() {
 				},
 				"done":              true,
 				"finish_reason":     finishReason,
-				"total_duration":    0,
-				"load_duration":     0,
-				"prompt_eval_count": 0,
-				"eval_count":        0,
-				"eval_duration":     0,
+				"total_duration":    int64(1000000), // 1ms in nanoseconds
+				"load_duration":     int64(1000000),
+				"prompt_eval_count": 1,
+				"eval_count":        1,
+				"eval_duration":     int64(1000000),
 			}
-
+			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusOK, ollamaResponse)
 		} else {
 			req := openai.ChatCompletionRequest{
@@ -376,12 +376,12 @@ func main() {
 				if err := yaml.Unmarshal(argsBuffer.Bytes(), &argsMap); err == nil {
 					parsedToolCall := map[string]interface{}{
 						"function": map[string]interface{}{
-							"name": toolName,
+							"name":      toolName,
 							"arguments": argsMap,
 						},
 					}
 					parsedToolCalls = append(parsedToolCalls, parsedToolCall)
-					} else {
+				} else {
 					slog.Error("Failed to parse arguments for tool call", "Error", err)
 				}
 
@@ -393,11 +393,11 @@ func main() {
 					responseJSON := map[string]interface{}{
 						"model":      fullModelName,
 						"created_at": time.Now().Format(time.RFC3339),
-						"message":    map[string]interface{}{
+						"message": map[string]interface{}{
 							"role":       "assistant",
 							"tool_calls": parsedToolCalls,
 						},
-						"done":       false, // Always false for intermediate chunks
+						"done": false, // Always false for intermediate chunks
 					}
 
 					// Marshal JSON
@@ -477,12 +477,12 @@ func main() {
 					responseJSON := map[string]interface{}{
 						"model":      fullModelName,
 						"created_at": time.Now().Format(time.RFC3339),
-						"message":    map[string]interface{}{
-							"role":       "assistant",
-							"content":    content,
-							"thinking":   thinking,
+						"message": map[string]interface{}{
+							"role":     "assistant",
+							"content":  content,
+							"thinking": thinking,
 						},
-						"done":       false, // Always false for intermediate chunks
+						"done": false, // Always false for intermediate chunks
 					}
 
 					// Marshal JSON
@@ -515,16 +515,17 @@ func main() {
 			finalResponse := map[string]interface{}{
 				"model":      fullModelName,
 				"created_at": time.Now().Format(time.RFC3339),
-				"message": map[string]string{ // required by ollama-python
+				"message": map[string]interface{}{
 					"role":    "assistant",
 					"content": "",
 				},
 				"done":              true,
+				"done_reason":       "stop",           // Some clients look for this specific key
 				"finish_reason":     lastFinishReason, // Not required for /api/chat Ollama, but does no harm
-				"total_duration":    0,
+				"total_duration":    int64(1000000),
+				"prompt_eval_count": 1,
+				"eval_count":        1,
 				"load_duration":     0,
-				"prompt_eval_count": 0,
-				"eval_count":        0,
 				"eval_duration":     0,
 			}
 
